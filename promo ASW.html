@@ -1,0 +1,205 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<title>Form Potongan ASW</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+
+<style>
+body{
+  font-family:Poppins,Arial;
+  background:linear-gradient(135deg,#0d6efd,#6ea8fe);
+  min-height:100vh;
+  display:flex;
+  justify-content:center;
+  align-items:center;
+}
+form{
+  background:#fff;
+  padding:25px;
+  width:100%;
+  max-width:650px;
+  border-radius:14px;
+  box-shadow:0 20px 40px rgba(0,0,0,.15);
+}
+h2{text-align:center;color:#0d6efd}
+label{font-weight:600;margin-top:10px;display:block}
+input,select,button{
+  width:100%;
+  padding:10px;
+  margin-top:5px;
+  border-radius:8px;
+  border:1px solid #ddd;
+}
+.item{
+  display:grid;
+  grid-template-columns:3fr 1.5fr 1.5fr 1fr;
+  gap:8px;
+  margin-top:10px;
+}
+.item input{margin:0}
+button{
+  background:#0d6efd;
+  color:#fff;
+  border:none;
+  cursor:pointer;
+}
+button:hover{background:#084298}
+.add{background:#198754;margin-top:15px}
+.remove{background:#dc3545}
+
+/* LOADING */
+.loading-box{
+  display:none;
+  align-items:center;
+  justify-content:center;
+  gap:10px;
+  font-weight:600;
+  color:#0d6efd;
+  margin:15px 0;
+}
+.spinner{
+  width:22px;height:22px;
+  border:3px solid #cfe2ff;
+  border-top:3px solid #0d6efd;
+  border-radius:50%;
+  animation:spin 1s linear infinite;
+}
+@keyframes spin{to{transform:rotate(360deg)}}
+
+/* SUCCESS */
+.success-box{
+  display:none;
+  text-align:center;
+  padding:15px;
+  background:#d1e7dd;
+  color:#0f5132;
+  border-radius:10px;
+  margin-bottom:10px;
+  animation:fade .4s ease;
+}
+@keyframes fade{
+  from{opacity:0;transform:scale(.9)}
+  to{opacity:1;transform:scale(1)}
+}
+</style>
+</head>
+
+<body>
+
+<form id="form">
+<h2>Form Potongan ASW</h2>
+
+<div id="success" class="success-box">✅ Data berhasil disimpan</div>
+
+<div id="loading" class="loading-box">
+  <div class="spinner"></div>
+  <div>Menyimpan data...</div>
+</div>
+
+<label>Nama Sales</label>
+<select id="sales" required></select>
+
+<label>Nama Toko</label>
+<input type="text" id="toko" placeholder="Ketik nama toko secara manual" required>
+
+<hr>
+
+<div id="items"></div>
+
+<button type="button" class="add" onclick="addItem()">+ Tambah Produk</button>
+<button type="submit">Simpan Semua</button>
+</form>
+
+<datalist id="listProduk"></datalist>
+
+<script>
+/* KONFIG */
+const apiURL="https://script.google.com/macros/s/AKfycbwJsm2SopLNcBXvCmdYx_ji55mJrpiQP9s-wz5IxpR5MQKxRyemmOQ5oeSD5PMNVVu3/exec";
+const CACHE_KEY="ASW_MASTER_DATA";
+const CACHE_TIME=1000*60*60*24*30;
+
+/* ELEMEN */
+const sales=document.getElementById("sales");
+const toko=document.getElementById("toko");
+const listProduk=document.getElementById("listProduk");
+const itemsDiv=document.getElementById("items");
+const loading=document.getElementById("loading");
+const success=document.getElementById("success");
+
+/* RENDER DATA (TANPA TOKO) */
+function renderData(d){
+  sales.innerHTML='<option value="">Pilih Sales</option>';
+  d.sales.forEach(s=>sales.innerHTML+=`<option>${s}</option>`);
+  d.produk.forEach(p=>listProduk.innerHTML+=`<option value="${p}">`);
+  addItem();
+}
+
+/* LOAD CACHE */
+(async()=>{
+  const c=localStorage.getItem(CACHE_KEY);
+  if(c){
+    const j=JSON.parse(c);
+    if(Date.now()-j.time<CACHE_TIME){
+      renderData(j.data);
+      return;
+    }
+  }
+  const r=await fetch(apiURL);
+  const d=await r.json();
+  localStorage.setItem(CACHE_KEY,JSON.stringify({time:Date.now(),data:d}));
+  renderData(d);
+})();
+
+/* ITEM */
+function addItem(){
+  const d=document.createElement("div");
+  d.className="item";
+  d.innerHTML=`
+    <input list="listProduk" placeholder="Produk">
+    <input type="number" placeholder="Jumlah">
+    <input type="number" placeholder="Diskon">
+    <button type="button" class="remove" onclick="this.parentElement.remove()">X</button>
+  `;
+  itemsDiv.appendChild(d);
+}
+
+/* RESET */
+function resetForm(){
+  sales.value="";
+  toko.value="";
+  itemsDiv.innerHTML="";
+  addItem();
+}
+
+/* SUBMIT */
+form.onsubmit=e=>{
+  e.preventDefault();
+  loading.style.display="flex";
+  success.style.display="none";
+
+  const items=[...document.querySelectorAll(".item")]
+    .map(i=>({
+      produk:i.children[0].value,
+      jumlah:i.children[1].value,
+      diskon:i.children[2].value
+    })).filter(i=>i.produk);
+
+  fetch(apiURL,{
+    method:"POST",
+    body:JSON.stringify({
+      nama_sales:sales.value,
+      nama_toko:toko.value,
+      items
+    })
+  }).then(()=>{
+    loading.style.display="none";
+    success.style.display="block";
+    resetForm();
+    setTimeout(()=>success.style.display="none",3000);
+  });
+};
+</script>
+
+</body>
+</html>
